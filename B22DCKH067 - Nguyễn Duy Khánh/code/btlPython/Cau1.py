@@ -308,9 +308,9 @@ def Crawl_Data(players_data, team_data):
         players = tbody.find_all('tr')
 
         for player in players:
-            player_minutes_matches = player.find('td', {'data-stat': 'minutes'}).get_text(strip=True) if player.find('td', {'data-stat': 'minutes'}) else "N/a"
-            # Kiểm tra nếu player_minutes_matches không phải là chuỗi trống và không phải là "N/a"
-            if player_minutes_matches != "N/a" and player_minutes_matches != "" and int(player_minutes_matches.replace(',', '')) < 90:
+            player_minutes_matches = player.find('td', {'data-stat': 'minutes'}).get_text(strip=True) if player.find('td', {'data-stat': 'minutes'}).get_text(strip=True) else "N/a"
+            # Lọc ra những cầu thủ đã thi đấu ít nhất 90 phút
+            if player_minutes_matches == "N/a" or int(player_minutes_matches.replace(',','')) < 90: 
                 continue
             player_data_tmp.append(process_footballer_data(player, team_name))
 
@@ -391,7 +391,11 @@ if __name__ == "__main__":
     
     # Sắp xếp dữ liệu theo first name và tuổi giảm dần
     players_data = sorted(players_data, key=lambda x: (x[0].split()[0], -int(x[4]) if x[4] != "N/a" else 0))
-    
+
+
+
+
+
     # # Chuyển dữ liệu thành DataFrame và lưu thành file CSV
     df_players = pd.DataFrame(players_data, columns=["Player Name", "Nation", "Team", "Position", "Age", "Matches Played", "Starts", "Minutes", "Non-Penalty Goals", "Penalties Made", "Assists", "Yellow Cards", "Red Cards", "xG", "npxG", "xAG", "PrgC", "PrgP", "PrgR","Gls/90", "Ast/90", "G+A/90", "G-PK/90", "G+A-PK/90", "xG/90", "xAG/90","xG+xAG/90", "npxG/90", "npxG+xAG/90",
                                                      "Goalkeeping_GA", "GGoalkeeping_GA90", "Goalkeeping_SoTA", "Goalkeeping_Saves", "Goalkeeping_Save%", "Goalkeeping_W", "Goalkeeping_D", "Goalkeeping_L", "Goalkeeping_CS", "Goalkeeping_CS%", "Goalkeeping_PKatt", "Goalkeeping_PKA", "Goalkeeping_Pksv", "Goalkeeping_PKm", "Goalkeeping_Save%",
