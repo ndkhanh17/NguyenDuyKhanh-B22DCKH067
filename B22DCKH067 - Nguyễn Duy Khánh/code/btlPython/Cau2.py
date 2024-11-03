@@ -59,7 +59,7 @@ def generate_histograms(df, performance_metrics):
         plt.xlabel(col)
         plt.ylabel('Số lượng cầu thủ (Người)')
         plt.grid(True, linestyle='--', alpha=0.5)
-        plt.savefig(os.path.join(all_teams_folder, f"{col}_all.png"))
+        plt.savefig(os.path.join(all_teams_folder, f"{df.columns.get_loc(col)}_all.png"))
         plt.close()
     
     print("Đã vẽ xong biểu đồ cho toàn giải")
