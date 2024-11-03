@@ -9,138 +9,121 @@ from collections import Counter
 import os
 import time
 
-def get_top3(df, columns_to_analyze):
-    # Ghi kết quả Top 3 cao nhất
-    with open("Top3NguoiChiSoCaoNhat.txt", "w", encoding="utf-8") as file:
-        for column in columns_to_analyze:
+def write_top3(df, performance_metrics, output_file="Top3ChiSo.txt"):
+    with open(output_file, "w", encoding="utf-8") as file:
+        for column in performance_metrics:
+            # Ghi kết quả Top 3 cao nhất
             file.write(f"\nTop 3 cầu thủ cao nhất cho chỉ số '{column}':\n")
             top_highest = df.nlargest(3, column)[['Player Name', 'Team', column]]
             file.write(tabulate(top_highest, headers='keys', tablefmt='fancy_grid') + "\n")
-        print("Đã ghi kết quả Top 3 cao nhất vào file Top3NguoiChiSoCaoNhat.txt")
-
-    # Ghi kết quả Top 3 thấp nhất
-    with open("Top3NguoiChiSoThapNhat.txt", "w", encoding="utf-8") as file:
-        for column in columns_to_analyze:
+            
+            # Ghi kết quả Top 3 thấp nhất
             file.write(f"\nTop 3 cầu thủ thấp nhất cho chỉ số '{column}':\n")
             top_lowest = df.nsmallest(3, column)[['Player Name', 'Team', column]]
             file.write(tabulate(top_lowest, headers='keys', tablefmt='fancy_grid') + "\n")
-        print("Đã ghi kết quả Top 3 thấp nhất vào file Top3NguoiChiSoThapNhat.txt")
+    
+    print(f"Đã ghi kết quả Top 3 cao nhất và thấp nhất vào file {output_file}")
 
-def get_statistics(df, columns_to_analyze):
-    # Tính trung vị, trung bình và độ lệch chuẩn
-    median_all = df[columns_to_analyze].median().round(2)
-    mean_all = df[columns_to_analyze].mean().round(2)
-    std_all = df[columns_to_analyze].std().round(2)
+def export_team_statistics(df, performance_metrics, output_file="results2.csv"):
+    # Tạo một hàm phụ để tính toán và định dạng kết quả cho từng nhóm (toàn giải hoặc từng đội)
+    def calculate_stats(data, label, idx):
+        stats = {'STT': idx, 'Team': label}
+        for col in performance_metrics:
+            stats[f'Median of {col}'] = round(data[col].median(), 2)
+            stats[f'Mean of {col}'] = round(data[col].mean(), 2)
+            stats[f'Std of {col}'] = round(data[col].std(), 2)
+        return stats
 
-    overall_df = pd.DataFrame({
-        'STT': [0],
-        'Team': ['all'],
-        **{f'Median of {col}': [median_all[col]] for col in columns_to_analyze},
-        **{f'Mean of {col}': [mean_all[col]] for col in columns_to_analyze},
-        **{f'Std of {col}': [std_all[col]] for col in columns_to_analyze}
-    })
+    # Tính toán cho toàn giải và thêm vào danh sách kết quả
+    results = [calculate_stats(df, 'all', 0)]
 
-    median_team = df.groupby('Team')[columns_to_analyze].median().round(2)
-    mean_team = df.groupby('Team')[columns_to_analyze].mean().round(2)
-    std_team = df.groupby('Team')[columns_to_analyze].std().round(2)
+    # Tính toán cho từng đội và thêm vào danh sách kết quả
+    for idx, (team, group) in enumerate(df.groupby('Team'), start=1):
+        results.append(calculate_stats(group, team, idx))
 
-    team_df = pd.DataFrame({
-        'STT': range(1, len(median_team) + 1),
-        'Team': median_team.index,
-        **{f'Median of {col}': median_team[col].values for col in columns_to_analyze},
-        **{f'Mean of {col}': mean_team[col].values for col in columns_to_analyze},
-        **{f'Std of {col}': std_team[col].values for col in columns_to_analyze}
-    })
+    # Chuyển danh sách kết quả thành DataFrame và xuất ra file CSV
+    final_df = pd.DataFrame(results)
+    final_df.to_csv(output_file, index=False, encoding='utf-8-sig')
+    print(f"<<<<<<<<Đã xuất kết quả ra file {output_file}>>>>>>>>")
 
-    final_df = pd.concat([overall_df, team_df], ignore_index=True)
-    final_df.to_csv('results2.csv', index=False, encoding='utf-8-sig')
-    print("Đã xuất kết quả ra file results2.csv")
+def generate_histograms(df, performance_metrics):
+    # Tạo thư mục cho toàn giải
+    all_teams_folder = "histograms_all"
+    os.makedirs(all_teams_folder, exist_ok=True)
 
-def print_histogram(df, columns_to_analyze):
-    output_folder_1 = "histograms_all"
-    if not os.path.exists(output_folder_1):
-        os.makedirs(output_folder_1)
-
-    for col in columns_to_analyze:
+    # Vẽ biểu đồ cho toàn giải
+    for col in performance_metrics:
         plt.figure(figsize=(8, 6))
-        sns.histplot(df[col], bins=20, kde=True, color='blue')
+        sns.histplot(df[col], bins=20, kde=True, color='yellow')
         plt.title(f'Histogram of {col} - Toàn Giải')
         plt.xlabel(col)
         plt.ylabel('Số lượng cầu thủ (Người)')
         plt.grid(True, linestyle='--', alpha=0.5)
-        plt.savefig(os.path.join(output_folder_1, f"{df.columns.get_loc(col)}.png"))
+        plt.savefig(os.path.join(all_teams_folder, f"{col}_all.png"))
         plt.close()
-
+    
     print("Đã vẽ xong biểu đồ cho toàn giải")
 
-    output_folder_2 = "histograms_teams"
-    if not os.path.exists(output_folder_2):
-        os.makedirs(output_folder_2)
+    # Tạo thư mục cho từng đội
+    teams_folder = "histograms_teams"
+    os.makedirs(teams_folder, exist_ok=True)
 
-    teams = df['Team'].unique()
-    for team in teams:
-        team_folder = os.path.join(output_folder_2, team)
-        if not os.path.exists(team_folder):
-            os.makedirs(team_folder)
+    # Vẽ biểu đồ cho từng đội
+    for team in df['Team'].unique():
+        team_folder = os.path.join(teams_folder, team)
+        os.makedirs(team_folder, exist_ok=True)
 
+        print("Vui lòng chờ.......")
         team_data = df[df['Team'] == team]
-        for col in columns_to_analyze:
+        for col in performance_metrics:
             plt.figure(figsize=(8, 6))
-            sns.histplot(team_data[col], bins=20, kde=True, color='green')
+            sns.histplot(team_data[col], bins=20, kde=True, color='red')
             plt.title(f'Histogram of {col} - {team}')
             plt.xlabel(col)
             plt.ylabel('Số lượng cầu thủ (Người)')
             plt.grid(True, linestyle='--', alpha=0.5)
-            plt.savefig(os.path.join(team_folder, f"{df.columns.get_loc(col)}.png"))
+            plt.savefig(os.path.join(team_folder, f"{df.columns.get_loc(col)}_{team}.png"))
             plt.close()
         
         print(f"Đã vẽ xong biểu đồ cho đội {team}")
-        time.sleep(3)
+        time.sleep(1)
 
-def get_best_team(df, columns_to_analyze):
-    columns_to_analyze = df.columns[8:]
-    df[columns_to_analyze] = df[columns_to_analyze].apply(pd.to_numeric, errors='coerce')
+def identify_best_teams(df, performance_metrics):
+    # Chuyển đổi các cột chỉ số thành dạng số nếu cần thiết
+    df[performance_metrics] = df[performance_metrics].apply(pd.to_numeric, errors='coerce')
 
-    team_summary = df.groupby('Team')[columns_to_analyze].mean()
-    results = []
+    # Tính giá trị trung bình của mỗi chỉ số cho từng đội
+    team_averages = df.groupby('Team')[performance_metrics].mean()
 
-    for column in columns_to_analyze:
-        best_team = team_summary[column].idxmax()
-        max_value = team_summary[column].max()
-        results.append([column, best_team, max_value])
+    # Tìm đội có giá trị cao nhất cho mỗi chỉ số
+    best_teams = [
+        [stat, team_averages[stat].idxmax(), team_averages[stat].max()]
+        for stat in performance_metrics
+    ]
 
+    # Hiển thị bảng kết quả chỉ số cao nhất cho mỗi chỉ số
     headers = ["Chỉ số", "Team", "Giá trị"]
-    print(tabulate(results, headers=headers, tablefmt="grid"))
+    print(tabulate(best_teams, headers=headers, tablefmt="grid"))
 
-    team_counts = Counter([row[1] for row in results])
-    frequency_table = [[team, count] for team, count in team_counts.items()]
-    frequency_table.sort(key=lambda x: x[1], reverse=True)
+    # Tính toán tần suất xuất hiện của từng đội trong các chỉ số cao nhất
+    team_frequency = Counter(team for _, team, _ in best_teams)
+    sorted_frequency = sorted(team_frequency.items(), key=lambda x: x[1], reverse=True)
 
+    # Hiển thị bảng tần suất của các đội
     print("\nTần suất của từng đội bóng:")
-    print(tabulate(frequency_table, headers=["Team", "Số lần"], tablefmt="grid"))
-    print("Đội có phong độ tốt nhất: " + str(frequency_table[0][0]) + " với số lần là: " + str(frequency_table[0][1]))
+    print(tabulate(sorted_frequency, headers=["Team", "Số lần"], tablefmt="grid"))
+
+    # Xác định đội có phong độ tốt nhất dựa trên tần suất cao nhất
+    best_team = sorted_frequency[0]
+    print(f"\nĐội có phong độ tốt nhất: {best_team[0]} với số lần là: {best_team[1]}")
 
 if __name__ == "__main__":
     df = pd.read_csv("results.csv")
-    columns_to_analyze = df.columns[4:]
-    df[columns_to_analyze] = df[columns_to_analyze].apply(pd.to_numeric, errors='coerce')
-
-    print("Chọn chức năng muốn thực hiện: ")
-    print("1. Tìm Top 3 người có chỉ số cao nhất và thấp nhất")
-    print("2. Tính trung vị, trung bình và độ lệch chuẩn")
-    print("3. Vẽ biểu đồ histogram")
-    print("4. Tìm đội có giá trị cao nhất ở từng chỉ số")
-    print("5. Thoát chương trình")
-
-    while True:
-        choice = int(input("Nhập lựa chọn của bạn: "))
-        if choice == 1:
-            get_top3(df, columns_to_analyze)
-        elif choice == 2:
-            get_statistics(df, columns_to_analyze)
-        elif choice == 3:
-            print_histogram(df, columns_to_analyze)
-        elif choice == 4:
-            get_best_team(df, columns_to_analyze)
-        else:
-            break
+    performance_metrics = df.columns[4:]
+    df[performance_metrics] = df[performance_metrics].apply(pd.to_numeric, errors='coerce')
+    
+    write_top3(df, performance_metrics)
+    export_team_statistics(df, performance_metrics)
+    generate_histograms(df, performance_metrics)
+    identify_best_teams(df, df.columns[8:])
+    
