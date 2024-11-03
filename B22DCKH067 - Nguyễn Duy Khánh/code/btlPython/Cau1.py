@@ -287,7 +287,7 @@ def process_miscellaneous_stats_data(player):
 
 
 # Hàm cào dữ liệu lấy thông tin cầu thủ của từng đội bóng
-def Crawl_Data_For_Each_Team(players_data, team_data):
+def Crawl_Data(players_data, team_data):
     # Lấy thông tin và các chỉ số cầu thủ của mỗi đội
     for team in team_data:
         team_name, team_url = team
@@ -387,7 +387,7 @@ if __name__ == "__main__":
     #  Danh sach chứa từng cầu thủ của đội bóng
     players_data = []
     time.sleep(5)
-    players_data = Crawl_Data_For_Each_Team(players_data, team_data)
+    players_data = Crawl_Data(players_data, team_data)
     
     # Sắp xếp dữ liệu theo first name và tuổi giảm dần
     players_data = sorted(players_data, key=lambda x: (x[0].split()[0], -int(x[4]) if x[4] != "N/a" else 0))
